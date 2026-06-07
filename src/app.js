@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
 import jobRoutes from './routes/job.routes.js';
 import resumeRoutes from './routes/resume.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/jobs', jobRoutes);
 app.use('/api/v1/resume', resumeRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 // ─── 404 HANDLER ───
 app.use((req, res) => {
