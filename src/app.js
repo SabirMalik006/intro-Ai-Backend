@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.routes.js';
 import jobRoutes from './routes/job.routes.js';
 import resumeRoutes from './routes/resume.routes.js';
 import aiRoutes from './routes/ai.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/jobs', jobRoutes);
 app.use('/api/v1/resume', resumeRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 // ─── 404 HANDLER ───
 app.use((req, res) => {

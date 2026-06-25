@@ -2,6 +2,24 @@ import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 
 // =============================================
+// HELPER: Parse time string to milliseconds
+// =============================================
+const parseTimeToMs = (str) => {
+  if (!str) return 15 * 60 * 1000;
+  const match = str.match(/^(\d+)([smhd])$/);
+  if (!match) return 15 * 60 * 1000;
+  const num = parseInt(match[1]);
+  const unit = match[2];
+  switch (unit) {
+    case 's': return num * 1000;
+    case 'm': return num * 60 * 1000;
+    case 'h': return num * 60 * 60 * 1000;
+    case 'd': return num * 24 * 60 * 60 * 1000;
+    default: return 15 * 60 * 1000;
+  }
+};
+
+// =============================================
 // HELPER: Generate Tokens
 // =============================================
 const generateTokens = async (user) => {
@@ -27,12 +45,12 @@ const setTokenCookies = (res, accessToken, refreshToken) => {
 
   res.cookie('accessToken', accessToken, {
     ...cookieOptions,
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    maxAge: parseTimeToMs(process.env.JWT_ACCESS_EXPIRY),
   });
 
   res.cookie('refreshToken', refreshToken, {
     ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: parseTimeToMs(process.env.JWT_REFRESH_EXPIRY),
   });
 };
 
