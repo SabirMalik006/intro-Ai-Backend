@@ -290,6 +290,91 @@ export const refreshToken = async (req, res, next) => {
 };
 
 // =============================================
+// UPDATE PROFILE (PROTECTED)
+// PUT /api/v1/auth/update-profile
+// =============================================
+export const updateProfile = async (req, res, next) => {
+  try {
+    const allowedFields = ['fullName', 'phone', 'bio', 'skills', 'notificationPreferences'];
+    const updates = {};
+
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+
+    // Prevent email change through this endpoint
+    if (req.body.email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email cannot be changed. Contact support for email changes.',
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: { user },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =============================================
+// DELETE ACCOUNT (PROTECTED)
+// DELETE /api/v1/auth/delete-account
+// =============================================
+export const deleteAccount = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required to delete your account',
+      });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Password is incorrect',
+      });
+    }
+
+    await User.findByIdAndUpdate(req.user._id, { isActive: false });
+
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+
+    res.status(200).json({
+      success: true,
+      message: 'Account deactivated successfully. We\'re sorry to see you go.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =============================================
 // UPDATE PASSWORD (PROTECTED)
 // PUT /api/v1/auth/update-password
 // =============================================

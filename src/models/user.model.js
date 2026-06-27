@@ -48,6 +48,20 @@ const userSchema = new mongoose.Schema({
   skills: [{
     type: String,
   }],
+  bio: {
+    type: String,
+    default: '',
+    maxlength: [500, 'Bio cannot exceed 500 characters'],
+  },
+
+  // ─── Notification Preferences ───
+  notificationPreferences: {
+    email: { type: Boolean, default: true },
+    interviews: { type: Boolean, default: true },
+    candidates: { type: Boolean, default: true },
+    reports: { type: Boolean, default: false },
+    marketing: { type: Boolean, default: false },
+  },
 
   // ─── Saved Jobs ───
   savedJobs: [{
