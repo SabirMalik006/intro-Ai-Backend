@@ -49,6 +49,12 @@ const userSchema = new mongoose.Schema({
     type: String,
   }],
 
+  // ─── Saved Jobs ───
+  savedJobs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Job',
+  }],
+
   // ─── Account Status ───
   isActive: {
     type: Boolean,

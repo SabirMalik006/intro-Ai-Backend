@@ -9,6 +9,9 @@ import {
   getRecruiterAnalytics,
   updateApplicationStatus,
   applyToJob,
+  saveJob,
+  unsaveJob,
+  getSavedJobs,
 } from '../controllers/job.controller.js';
 import { protect, authorize } from '../middleware/auth.middleware.js';
 import { validateJob, validateJobUpdate } from '../middleware/job.validation.js';
@@ -22,6 +25,9 @@ router.get('/', getAllJobs);
 // ─── PROTECTED ROUTES (Require Auth) ───
 router.use(protect);
 
+router.get('/saved', getSavedJobs);
+router.post('/:id/save', saveJob);
+router.delete('/:id/save', unsaveJob);
 router.post('/:id/apply', uploadResume.single('resume'), applyToJob);
 
 // ─── RECRUITER ONLY ROUTES ───

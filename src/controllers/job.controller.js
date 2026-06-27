@@ -390,3 +390,62 @@ export const applyToJob = asyncHandler(async (req, res, next) => {
     message: 'Applied successfully',
   });
 });
+
+// =============================================
+// SAVE JOB (Bookmark)
+// POST /api/v1/jobs/:id/save
+// =============================================
+export const saveJob = asyncHandler(async (req, res, next) => {
+  const jobId = req.params.id;
+  const userId = req.user._id;
+
+  const job = await Job.findById(jobId);
+  if (!job) {
+    return res.status(404).json({ success: false, message: 'Job not found' });
+  }
+
+  const user = await User.findById(userId);
+  if (user.savedJobs.includes(jobId)) {
+    return res.status(400).json({ success: false, message: 'Job already saved' });
+  }
+
+  user.savedJobs.push(jobId);
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({ success: true, message: 'Job saved successfully' });
+});
+
+// =============================================
+// UNSAVE JOB (Remove Bookmark)
+// DELETE /api/v1/jobs/:id/save
+// =============================================
+export const unsaveJob = asyncHandler(async (req, res, next) => {
+  const jobId = req.params.id;
+  const userId = req.user._id;
+
+  const user = await User.findById(userId);
+  if (!user.savedJobs.includes(jobId)) {
+    return res.status(400).json({ success: false, message: 'Job not saved yet' });
+  }
+
+  user.savedJobs = user.savedJobs.filter(id => id.toString() !== jobId);
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({ success: true, message: 'Job removed from saved' });
+});
+
+// =============================================
+// GET SAVED JOBS
+// GET /api/v1/jobs/saved
+// =============================================
+export const getSavedJobs = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user._id).populate({
+    path: 'savedJobs',
+    select: '-applications',
+  });
+
+  res.status(200).json({
+    success: true,
+    data: { jobs: user.savedJobs },
+  });
+});
