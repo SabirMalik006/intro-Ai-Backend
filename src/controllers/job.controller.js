@@ -1,5 +1,6 @@
 import Job from '../models/job.model.js';
 import User from '../models/user.model.js';
+import Conversation from '../models/conversation.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 // =============================================
@@ -77,10 +78,25 @@ export const getAllJobs = asyncHandler(async (req, res, next) => {
     .limit(parseInt(limit))
     .select('-applications');
 
+  // Check which jobs the current user has applied to
+  let appliedJobIds = new Set();
+  if (req.user) {
+    const appliedJobs = await Job.find({
+      _id: { $in: jobs.map(j => j._id) },
+      'applications.candidate': req.user._id,
+    }).select('_id');
+    appliedJobIds = new Set(appliedJobs.map(j => j._id.toString()));
+  }
+
+  const jobsWithFlag = jobs.map(j => ({
+    ...j.toObject(),
+    hasApplied: appliedJobIds.has(j._id.toString()),
+  }));
+
   res.status(200).json({
     success: true,
     data: {
-      jobs,
+      jobs: jobsWithFlag,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -106,7 +122,7 @@ export const getMyJobs = asyncHandler(async (req, res, next) => {
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(parseInt(limit))
-    .select('-applications');
+    .populate('applications.candidate', 'fullName email avatar skills');
 
   res.status(200).json({
     success: true,
@@ -384,6 +400,23 @@ export const applyToJob = asyncHandler(async (req, res, next) => {
   job.applicationsCount = (job.applicationsCount || 0) + 1;
 
   await job.save({ validateBeforeSave: false });
+
+  // Auto-create conversation between candidate and job recruiter
+  if (job.recruiter && job.recruiter.toString() !== req.user._id.toString()) {
+    const existing = await Conversation.findOne({
+      participants: { $all: [req.user._id, job.recruiter], $size: 2 },
+    });
+    if (!existing) {
+      await Conversation.create({
+        participants: [req.user._id, job.recruiter],
+        lastMessage: {
+          text: `${req.user.fullName || 'A candidate'} applied for "${job.title}"`,
+          sender: req.user._id,
+          timestamp: new Date(),
+        },
+      });
+    }
+  }
 
   res.status(200).json({
     success: true,

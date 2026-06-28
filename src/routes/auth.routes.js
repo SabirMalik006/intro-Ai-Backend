@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import { 
-  register, 
-  login, 
-  logout, 
-  getMe, 
+import {
+  register,
+  login,
+  logout,
+  getMe,
   refreshToken,
   updatePassword,
   updateProfile,
-  deleteAccount
+  deleteAccount,
+  searchUsers,
+  getUserStats
 } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 
@@ -38,5 +40,11 @@ router.put('/update-profile', protect, updateProfile);
 
 // Delete account
 router.delete('/delete-account', protect, deleteAccount);
+
+// Search users
+router.get('/search-users', protect, searchUsers);
+
+// Get user stats
+router.get('/:id/stats', protect, getUserStats);
 
 export default router;

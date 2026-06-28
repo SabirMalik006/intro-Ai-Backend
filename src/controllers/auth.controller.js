@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
+import InterviewAssignment from '../models/interviewAssignment.model.js';
+import Job from '../models/job.model.js';
 
 // =============================================
 // HELPER: Parse time string to milliseconds
@@ -215,6 +217,30 @@ export const logout = async (req, res, next) => {
 // GET CURRENT USER (PROTECTED)
 // GET /api/v1/auth/me
 // =============================================
+export const searchUsers = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const users = await User.find({
+      _id: { $ne: req.user._id },
+      $or: [
+        { fullName: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } },
+      ],
+    })
+      .select('fullName email role avatar company')
+      .limit(20)
+      .lean();
+
+    res.json({ success: true, data: users });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
@@ -421,6 +447,51 @@ export const updatePassword = async (req, res, next) => {
       message: 'Password updated successfully',
       data: { accessToken },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── GET USER STATS ───
+export const getUserStats = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id).select('role');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const isCandidate = user.role?.toLowerCase().includes('candidate') || user.role?.toLowerCase() === 'user';
+    const stats = {};
+
+    if (isCandidate) {
+      const assignments = await InterviewAssignment.find({ candidate: id });
+      const total = assignments.length;
+      const completed = assignments.filter(a => a.status === 'completed').length;
+      const scores = assignments
+        .filter(a => a.status === 'completed' && a.report?.overallScore != null)
+        .map(a => a.report.overallScore);
+      const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      const passed = scores.filter(s => s >= 60).length;
+      const successRate = scores.length ? Math.round((passed / scores.length) * 100) : 0;
+
+      stats.interviews = total;
+      stats.completed = completed;
+      stats.avgScore = avgScore;
+      stats.successRate = successRate;
+      stats.highestScore = scores.length ? Math.max(...scores) : 0;
+    } else {
+      const jobs = await Job.find({ postedBy: id });
+      const totalJobs = jobs.length;
+      const activeJobs = jobs.filter(j => j.status === 'active').length;
+      const totalApplicants = jobs.reduce((sum, j) => sum + (j.applications?.length || 0), 0);
+      const hired = jobs.reduce((sum, j) => sum + (j.applications?.filter(a => a.status === 'hired').length || 0), 0);
+
+      stats.jobs = totalJobs;
+      stats.activeJobs = activeJobs;
+      stats.candidates = totalApplicants;
+      stats.hired = hired;
+    }
+
+    res.json({ success: true, data: stats });
   } catch (error) {
     next(error);
   }

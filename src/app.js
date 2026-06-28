@@ -7,6 +7,8 @@ import resumeRoutes from './routes/resume.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import teamRoutes from './routes/team.routes.js';
+import interviewRoutes from './routes/interview.routes.js';
+import messageRoutes from './routes/message.routes.js';
 
 const app = express();
 
@@ -49,6 +51,8 @@ app.use('/api/v1/resume', resumeRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/team', teamRoutes);
+app.use('/api/v1/interviews', interviewRoutes);
+app.use('/api/v1/messages', messageRoutes);
 
 // ─── 404 HANDLER ───
 app.use((req, res) => {
