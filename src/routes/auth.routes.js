@@ -14,6 +14,7 @@ import {
   googleCallback
 } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
+import { checkLoginAttempts } from '../middleware/security.middleware.js';
 
 const router = Router();
 
@@ -21,8 +22,8 @@ const router = Router();
 // Register new user
 router.post('/register', register);
 
-// Login user
-router.post('/login', login);
+// Login user (with brute-force protection)
+router.post('/login', checkLoginAttempts, login);
 
 // Refresh access token
 router.post('/refresh-token', refreshToken);

@@ -25,7 +25,11 @@ const io = new Server(httpServer, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
+    methods: ['GET', 'POST'],
   },
+  maxHttpBufferSize: 1e7, // 10MB max message size
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 app.set('io', io);

@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 import InterviewAssignment from '../models/interviewAssignment.model.js';
 import Job from '../models/job.model.js';
+import { recordFailedAttempt, resetLoginAttempts } from '../middleware/security.middleware.js';
 
 // =============================================
 // HELPER: Parse time string to milliseconds
@@ -42,7 +43,8 @@ const setTokenCookies = (res, accessToken, refreshToken) => {
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
+    path: '/',
   };
 
   res.cookie('accessToken', accessToken, {
@@ -139,10 +141,14 @@ export const login = async (req, res, next) => {
     // Find user and include password
     const user = await User.findOne({ email }).select('+password');
 
+    // Use generic message to prevent user enumeration
+    const invalidMsg = 'Invalid email or password';
+
     if (!user) {
+      recordFailedAttempt(email);
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password',
+        message: invalidMsg,
       });
     }
 
@@ -157,11 +163,15 @@ export const login = async (req, res, next) => {
     // Compare password
     const isPasswordMatch = await user.comparePassword(password);
     if (!isPasswordMatch) {
+      recordFailedAttempt(email);
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password',
+        message: invalidMsg,
       });
     }
+
+    // Reset failed attempts on successful login
+    resetLoginAttempts(email);
 
     // Update last login
     user.lastLogin = new Date();
