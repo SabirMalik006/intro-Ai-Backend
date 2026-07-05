@@ -21,7 +21,6 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
     minlength: [8, 'Password must be at least 8 characters'],
     select: false,
   },
@@ -29,11 +28,27 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['candidate', 'recruiter'],
     required: [true, 'Please select your role'],
+    default: 'candidate',
   },
   company: {
     type: String,
     trim: true,
     default: '',
+  },
+
+  // ─── OAuth Fields ───
+  authProvider: {
+    type: String,
+    enum: ['local', 'google', 'github'],
+    default: 'local',
+  },
+  googleId: {
+    type: String,
+    default: null,
+  },
+  githubId: {
+    type: String,
+    default: null,
   },
 
   // ─── Extra Profile Fields (Optional for later) ───
@@ -93,7 +108,7 @@ const userSchema = new mongoose.Schema({
 // =============================================
 userSchema.pre('save', async function () {
   // Hash password only if modified
-  if (this.isModified('password')) {
+  if (this.isModified('password') && this.password) {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
   }
@@ -141,6 +156,8 @@ userSchema.methods.toJSON = function () {
   delete user.password;
   delete user.__v;
   delete user.refreshToken;
+  delete user.googleId;
+  delete user.githubId;
   return user;
 };
 

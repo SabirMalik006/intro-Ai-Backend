@@ -452,6 +452,26 @@ export const updatePassword = async (req, res, next) => {
   }
 };
 
+// =============================================
+// GOOGLE OAUTH CALLBACK
+// GET /api/v1/auth/google/callback
+// =============================================
+export const googleCallback = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=oauth_failed`);
+    }
+
+    const { accessToken, refreshToken } = await generateTokens(req.user);
+    setTokenCookies(res, accessToken, refreshToken);
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/dashboard`);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── GET USER STATS ───
 export const getUserStats = async (req, res, next) => {
   try {

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import passport from 'passport';
 import {
   register,
   login,
@@ -9,7 +10,8 @@ import {
   updateProfile,
   deleteAccount,
   searchUsers,
-  getUserStats
+  getUserStats,
+  googleCallback
 } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 
@@ -24,6 +26,22 @@ router.post('/login', login);
 
 // Refresh access token
 router.post('/refresh-token', refreshToken);
+
+// ─── GOOGLE OAUTH ───
+// Start Google OAuth flow
+router.get('/google', passport.authenticate('google', {
+  scope: ['profile', 'email'],
+  session: true,
+}));
+
+// Google OAuth callback
+router.get('/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=oauth_failed`,
+    session: true,
+  }),
+  googleCallback
+);
 
 // ─── PROTECTED ROUTES (requires login) ───
 // Get current logged-in user

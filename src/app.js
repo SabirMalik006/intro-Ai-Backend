@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import passport from 'passport';
+import { configurePassport } from './config/passport.js';
 import authRoutes from './routes/auth.routes.js';
 import jobRoutes from './routes/job.routes.js';
 import resumeRoutes from './routes/resume.routes.js';
@@ -34,6 +37,21 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
+
+// ─── SESSION & PASSPORT ───
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'smarthire_session_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+}));
+
+configurePassport();
+app.use(passport.initialize());
+app.use(passport.session());
 
 // ─── HEALTH CHECK ───
 app.get('/api/health', (req, res) => {
