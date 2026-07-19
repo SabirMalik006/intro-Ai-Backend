@@ -303,10 +303,10 @@ Return ONLY valid JSON (no markdown, no extra text):
   "improvement": "one specific area to improve"
 }
 
-Be fair and constructive. Score should be 40-95 range.`;
+Be fair and constructive. Score should be 1-100 range. Score 0-10 for "I don't know" or completely irrelevant answers.`;
 
   let evaluation = {
-    score: 70,
+    score: 50,
     feedback: 'Your answer shows understanding. Consider adding more specific examples.',
     strength: 'Good response',
     improvement: 'Add more details',

@@ -171,7 +171,7 @@ Return ONLY valid JSON (no markdown, no extra text):
   "improvement": "one specific area to improve"
 }
 
-Be fair and constructive. Score should be 40-95 range.`;
+Be fair and constructive. Score should be 1-100 range. Score 0-10 for "I don't know" or completely irrelevant answers.`;
 
   const openai = getOpenAIClient();
 
@@ -202,7 +202,7 @@ Be fair and constructive. Score should be 40-95 range.`;
     res.status(200).json({
       success: true,
       data: {
-        score: 70,
+        score: 50,
         feedback: 'Your answer shows understanding of the topic. Consider adding more specific examples from your experience to strengthen your response.',
         strength: 'Good overall response',
         improvement: 'Add more specific examples',
