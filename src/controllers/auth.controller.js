@@ -1,8 +1,17 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/user.model.js';
+import Otp from '../models/otp.model.js';
 import InterviewAssignment from '../models/interviewAssignment.model.js';
 import Job from '../models/job.model.js';
 import { recordFailedAttempt, resetLoginAttempts } from '../middleware/security.middleware.js';
+import {
+  sendWelcomeEmail,
+  sendPasswordChangedEmail,
+  sendAccountDeletedEmail,
+  sendOtpEmail,
+  sendPasswordResetSuccessEmail,
+} from '../services/email.service.js';
 
 // =============================================
 // HELPER: Parse time string to milliseconds
@@ -105,6 +114,9 @@ export const register = async (req, res, next) => {
 
     // Set cookies
     setTokenCookies(res, accessToken, refreshToken);
+
+    // Send welcome email
+    await sendWelcomeEmail(user.email, user.fullName, user.role);
 
     // Remove password from response
     const userResponse = user.toJSON();
@@ -398,6 +410,9 @@ export const deleteAccount = async (req, res, next) => {
 
     await User.findByIdAndUpdate(req.user._id, { isActive: false });
 
+    // Send account deactivation email
+    await sendAccountDeletedEmail(user.email, user.fullName);
+
     res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
 
@@ -448,6 +463,9 @@ export const updatePassword = async (req, res, next) => {
     user.password = newPassword;
     await user.save();
 
+    // Send password changed notification
+    await sendPasswordChangedEmail(user.email, user.fullName);
+
     // Generate new tokens (invalidate old ones)
     const { accessToken, refreshToken } = await generateTokens(user);
     setTokenCookies(res, accessToken, refreshToken);
@@ -477,6 +495,206 @@ export const googleCallback = async (req, res, next) => {
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/dashboard`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =============================================
+// FORGOT PASSWORD — Send OTP
+// POST /api/v1/auth/forgot-password
+// =============================================
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your email address',
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    // Don't reveal if user exists or not (security)
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: 'If an account exists with this email, you will receive an OTP.',
+      });
+    }
+
+    // ─── Rate limiting ───
+    const windowMinutes = parseInt(process.env.OTP_RATE_LIMIT_WINDOW_MINUTES) || 15;
+    const maxRequests = parseInt(process.env.OTP_RATE_LIMIT_MAX_REQUESTS) || 4;
+    const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000);
+
+    const recentRequests = await Otp.countDocuments({
+      email,
+      createdAt: { $gte: windowStart },
+    });
+
+    if (recentRequests >= maxRequests) {
+      return res.status(429).json({
+        success: false,
+        message: `Too many attempts. Please try again after ${windowMinutes} minutes.`,
+      });
+    }
+
+    // ─── Generate OTP ───
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES) || 5;
+    const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+
+    await Otp.create({
+      email,
+      otp,
+      type: 'password_reset',
+      expiresAt,
+      maxAttempts: parseInt(process.env.OTP_MAX_ATTEMPTS) || 3,
+    });
+
+    // ─── Send OTP email ───
+    await sendOtpEmail(email, user.fullName, otp);
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent to your email. Please check your inbox.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =============================================
+// VERIFY OTP
+// POST /api/v1/auth/verify-otp
+// =============================================
+export const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required',
+      });
+    }
+
+    // Find the latest valid OTP
+    const otpRecord = await Otp.findOne({
+      email,
+      type: 'password_reset',
+      used: false,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid OTP found. Please request a new one.',
+      });
+    }
+
+    // Check attempts
+    if (otpRecord.attempts >= otpRecord.maxAttempts) {
+      otpRecord.used = true;
+      await otpRecord.save();
+      return res.status(400).json({
+        success: false,
+        message: 'Too many incorrect attempts. Please request a new OTP.',
+      });
+    }
+
+    // Verify OTP
+    const isValid = await otpRecord.compareOtp(otp);
+
+    if (!isValid) {
+      otpRecord.attempts += 1;
+      await otpRecord.save();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP. Please try again.',
+      });
+    }
+
+    // Mark as used
+    otpRecord.used = true;
+    await otpRecord.save();
+
+    // Generate a reset token for password reset
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Store reset token in user document
+    await User.findOneAndUpdate(
+      { email },
+      {
+        resetPasswordToken: resetTokenHash,
+        resetPasswordExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP verified successfully',
+      data: { resetToken },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =============================================
+// RESET PASSWORD
+// POST /api/v1/auth/reset-password
+// =============================================
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, resetToken, newPassword } = req.body;
+
+    if (!email || !resetToken || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, reset token, and new password are required',
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters',
+      });
+    }
+
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: resetTokenHash,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select('+password');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token. Please request a new OTP.',
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    await sendPasswordResetSuccessEmail(user.email, user.fullName);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. Please log in with your new password.',
+    });
   } catch (error) {
     next(error);
   }

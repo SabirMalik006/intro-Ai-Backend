@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import Team from '../models/team.model.js';
 import User from '../models/user.model.js';
+import { sendTeamInviteEmail } from '../services/email.service.js';
 
 // =============================================
 // GET MY TEAM
@@ -96,6 +97,13 @@ export const inviteMember = async (req, res, next) => {
     });
 
     await team.save();
+
+    // Send invite email
+    try {
+      await sendTeamInviteEmail(email, req.user.fullName, 'SmartHire Team', token);
+    } catch (emailErr) {
+      console.error('Failed to send invite email:', emailErr.message);
+    }
 
     res.status(200).json({
       success: true,

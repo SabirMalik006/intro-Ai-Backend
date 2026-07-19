@@ -1,0 +1,8 @@
+◇ injected env (22) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+✅ MongoDB Connected: ac-t02o5kz-shard-00-00.bsjnotw.mongodb.net
+📊 Database Name: test
+🚀 Server running on http://localhost:5000
+📍 API: http://localhost:5000/api/v1
+❤️  Health: http://localhost:5000/api/health
+💬 Socket.io ready

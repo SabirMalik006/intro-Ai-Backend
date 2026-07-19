@@ -2,6 +2,11 @@ import Job from '../models/job.model.js';
 import User from '../models/user.model.js';
 import Conversation from '../models/conversation.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import {
+  sendApplicationReceivedEmail,
+  sendApplicationConfirmationEmail,
+  sendApplicationStatusEmail,
+} from '../services/email.service.js';
 
 // =============================================
 // CREATE JOB (Recruiter Only)
@@ -340,6 +345,24 @@ export const updateApplicationStatus = asyncHandler(async (req, res, next) => {
 
   await job.save();
 
+  // Send status update email to candidate
+  if (status) {
+    try {
+      const candidate = await User.findById(application.candidate).select('fullName email');
+      if (candidate) {
+        await sendApplicationStatusEmail(
+          candidate.email,
+          candidate.fullName,
+          job.title,
+          job.company,
+          status
+        );
+      }
+    } catch (emailErr) {
+      console.error('Failed to send application status email:', emailErr.message);
+    }
+  }
+
   res.status(200).json({
     success: true,
     message: 'Application updated',
@@ -416,6 +439,29 @@ export const applyToJob = asyncHandler(async (req, res, next) => {
         },
       });
     }
+  }
+
+  // Send email notifications
+  try {
+    const recruiter = await User.findById(job.postedBy).select('fullName email');
+    if (recruiter) {
+      await sendApplicationReceivedEmail(
+        recruiter.email,
+        recruiter.fullName,
+        req.user.fullName,
+        job.title,
+        req.user.email
+      );
+    }
+
+    await sendApplicationConfirmationEmail(
+      req.user.email,
+      req.user.fullName,
+      job.title,
+      job.company
+    );
+  } catch (emailErr) {
+    console.error('Failed to send application email:', emailErr.message);
   }
 
   res.status(200).json({

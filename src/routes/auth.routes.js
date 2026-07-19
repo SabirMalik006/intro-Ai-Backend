@@ -11,7 +11,10 @@ import {
   deleteAccount,
   searchUsers,
   getUserStats,
-  googleCallback
+  googleCallback,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
 } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 import { checkLoginAttempts } from '../middleware/security.middleware.js';
@@ -27,6 +30,11 @@ router.post('/login', checkLoginAttempts, login);
 
 // Refresh access token
 router.post('/refresh-token', refreshToken);
+
+// ─── FORGOT PASSWORD / OTP ───
+router.post('/forgot-password', forgotPassword);
+router.post('/verify-otp', verifyOtp);
+router.post('/reset-password', resetPassword);
 
 // ─── GOOGLE OAUTH ───
 // Start Google OAuth flow

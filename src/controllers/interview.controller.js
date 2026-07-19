@@ -1,7 +1,12 @@
 import OpenAI from 'openai';
 import InterviewAssignment from '../models/interviewAssignment.model.js';
 import Job from '../models/job.model.js';
+import User from '../models/user.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import {
+  sendInterviewAssignedEmail,
+  sendInterviewReportEmail,
+} from '../services/email.service.js';
 
 const getOpenAIClient = () => {
   if (!process.env.OPENROUTER_API_KEY) {
@@ -128,6 +133,24 @@ Mix technical and behavioral questions appropriately for this role based on the 
   if (application && application.status === 'applied') {
     application.status = 'screened';
     await job.save({ validateBeforeSave: false });
+  }
+
+  // Send email notification to candidate
+  try {
+    const candidate = await User.findById(candidateId).select('fullName email');
+    if (candidate) {
+      await sendInterviewAssignedEmail(
+        candidate.email,
+        candidate.fullName,
+        job.title,
+        job.company,
+        req.user.fullName,
+        assignment.expiresAt,
+        assignment._id
+      );
+    }
+  } catch (emailErr) {
+    console.error('Failed to send interview email:', emailErr.message);
   }
 
   res.status(201).json({
@@ -470,6 +493,37 @@ Return ONLY valid JSON (no markdown, no extra text):
       application.score = totalScore;
       await job.save({ validateBeforeSave: false });
     }
+  }
+
+  // Send email notifications
+  try {
+    const candidate = await User.findById(interview.candidate).select('fullName email');
+    const recruiter = await User.findById(interview.recruiter).select('fullName email');
+    const company = job?.company || '';
+
+    if (candidate) {
+      await sendInterviewReportEmail(
+        candidate.email,
+        candidate.fullName,
+        interview.jobRole,
+        company,
+        totalScore,
+        interview.report?.recommendation
+      );
+    }
+
+    if (recruiter) {
+      await sendInterviewReportEmail(
+        recruiter.email,
+        recruiter.fullName,
+        interview.jobRole,
+        company,
+        totalScore,
+        interview.report?.recommendation
+      );
+    }
+  } catch (emailErr) {
+    console.error('Failed to send interview report email:', emailErr.message);
   }
 
   res.status(200).json({

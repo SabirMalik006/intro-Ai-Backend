@@ -1,8 +1,10 @@
 import Resume from '../models/resume.model.js';
+import User from '../models/user.model.js';
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
 import { analyzeResumeWithAI } from '../services/resume.service.js';
+import { sendResumeAnalysisEmail } from '../services/email.service.js';
 
 const require = createRequire(import.meta.url);
 
@@ -45,6 +47,16 @@ export const analyzeResume = async (req, res) => {
       fileUrl: req.file.path,
       analysisResult,
     });
+
+    // Send analysis email
+    try {
+      const user = await User.findById(req.user._id).select('fullName email');
+      if (user) {
+        await sendResumeAnalysisEmail(user.email, user.fullName, analysisResult?.overallScore || 0);
+      }
+    } catch (emailErr) {
+      console.error('Failed to send resume analysis email:', emailErr.message);
+    }
 
     return res.status(201).json({
       success: true,
