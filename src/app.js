@@ -35,7 +35,7 @@ app.use(cors({
     if (!origin || corsWhitelist.some(w => origin.startsWith(w))) {
       callback(null, true);
     } else {
-      callback(null, true); // In production, reject unknown origins
+      callback(new Error('Not allowed by CORS'), false);
     }
   },
   credentials: true,

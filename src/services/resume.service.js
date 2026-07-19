@@ -13,7 +13,7 @@ const getOpenAIClient = () => {
     baseURL: 'https://openrouter.ai/api/v1',
     apiKey: process.env.OPENROUTER_API_KEY,
     defaultHeaders: {
-      "HTTP-Referer": "http://localhost:3000",
+      "HTTP-Referer": process.env.FRONTEND_URL || 'http://localhost:3000',
       "X-Title": "SmartHire",
     }
   });
