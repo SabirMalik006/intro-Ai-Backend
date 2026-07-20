@@ -25,14 +25,15 @@ const app = express();
 app.use(helmet());
 
 // 2. CORS
-const corsWhitelist = [
+const getCorsWhitelist = () => [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   process.env.BACKEND_URL || 'http://localhost:5000',
+  'https://www.smarthire.site',
 ];
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, mobile apps, curl, etc.)
-    if (!origin || corsWhitelist.some(w => origin.startsWith(w))) {
+    const whitelist = getCorsWhitelist();
+    if (!origin || whitelist.some(w => origin.startsWith(w))) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'), false);
